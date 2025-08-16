@@ -1,10 +1,9 @@
 from django.shortcuts import render
 from rest_framework import generics, permissions
-# from django.contrib.auth.models import User
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
-from .models import Doctor, Appointment, CustomUser
+from .models import Doctor, Appointment,  CustomUser
 from .serializers import RegisterSerializer, UserSerializer, DoctorSerializer, AppointmentSerializer
 from rest_framework.views import APIView
 from rest_framework import status
@@ -12,8 +11,6 @@ from .utils import send_otp_email
 import random
 from django.contrib.auth import get_user_model
 User = get_user_model()
-
-
 
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
@@ -75,14 +72,13 @@ class VerifyOTPView(APIView):
         otp = request.data.get('otp')
 
         try:
-            # user_otp = CustomUser.objects.get(user__email=email)
-            user = User.objects.get(email=email)
+        
+            user = CustomUser.objects.get(email=email)
         except CustomUser.DoesNotExist:
             return Response({'error': 'Invalid email'}, status=status.HTTP_400_BAD_REQUEST)
-        if user.is_otp_valid(otp):
-            user.is_verified = True
-            user.is_active = True
-            user.otp = None  # Clear the OTP after successful verification
+        if user.otp == otp:
+            user.is_active = True   
+            user.otp = None         
             user.save()
             return Response(
                 {'message': 'Account successfully verified. You can now log in.'},
@@ -93,12 +89,49 @@ class VerifyOTPView(APIView):
                 {'error': 'Invalid or expired OTP.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+            
+from .models import Leave, Slot
+from .serializers import SlotSerializer
+from rest_framework.permissions import IsAuthenticated
 
-        # if user.is_otp_valid(otp):
-        #     user.user.is_active = True
-        #     user_otp.user.save()
-        #     return Response({'message': 'OTP verified successfully'}, status=status.HTTP_200_OK)
-        # else:
-        #     return Response({'error': 'Invalid or expired OTP'}, status=status.HTTP_400_BAD_REQUEST)
+class AvailableSlotsView(generics.ListAPIView):
+    serializer_class = SlotSerializer
+    permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        doctor_id = self.request.query_params.get('doctor')
+        date = self.request.query_params.get('date')
+        all_slots = Slot.objects.all()
+
+        if doctor_id and date:
+            # this will remove the slots that are leave
+            leaves = Leave.objects.filter(doctor_id=doctor_id, date=date)
+            unavailable_slots = [l.slot.id for l in leaves]
+            return all_slots.exclude(id__in=unavailable_slots)
+        return all_slots
+from rest_framework.generics import ListAPIView
+from .serializers import SlotSerializer
+class SlotListAPIView(ListAPIView):
+    queryset = Slot.objects.all()
+    serializer_class = SlotSerializer
+    
+    
+from .models import Leave
+from .serializers import LeaveSerializer
+
+class LeaveListView(generics.ListAPIView):
+    serializer_class = LeaveSerializer
+
+    def get_queryset(self):
+        doctor_id = self.request.query_params.get('doctor')
+        date_param = self.request.query_params.get('date')
+        if doctor_id and date_param:
+            return Leave.objects.filter(doctor_id=doctor_id, date=date_param)
+        return Leave.objects.none()
+
+
+
+
+
+       
 # Create your views here.

@@ -12,13 +12,12 @@ class CustomUser(AbstractUser):
     is_verified = models.BooleanField(default=False)
 
     def set_otp(self, otp_code):
-        """Generates and sets a new OTP for the user."""
         self.otp = otp_code
         self.otp_created_at = timezone.now()
         self.save()
 
     def is_otp_valid(self, otp_code):
-        """Checks if the provided OTP is valid and not expired."""
+    # checking valid otp or expired
         if self.otp != otp_code:
             return False
         # OTP is valid for 5 minutes.
