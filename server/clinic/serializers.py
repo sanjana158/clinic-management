@@ -1,44 +1,3 @@
-# from rest_framework import serializers
-# from django.contrib.auth.models import User
-# from .models import Doctor, Slot, Appointment
-
-# class RegisterSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = User
-#         fields = ('id','username','password')
-#         extra_kwargs = {'password': {'write_only': True}}
-
-#     def create(self, validated_data):
-#         user = User.objects.create_user(**validated_data)
-#         return user
-
-# class UserSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = User
-#         fields = ('id','username','email')
-
-# class DoctorSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Doctor
-#         fields = '__all__'
-
-# class SlotSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Slot
-#         fields = '__all__'
-
-# class AppointmentSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Appointment
-#         fields = '__all__'
-
-#     def validate(self, data):
-#         from datetime import date, timedelta
-#         if data['appointment_date'] <= date.today():
-#             raise serializers.ValidationError("Appointment must be from tomorrow onward.")
-#         if data['appointment_date'] > date.today() + timedelta(days=30):
-#             raise serializers.ValidationError("Appointment cannot be more than 30 days in advance.")
-#         return data
 from rest_framework import serializers
 # from django.contrib.auth.models import User
 from .models import Doctor, Slot, Appointment, Leave, CustomUser
@@ -90,20 +49,22 @@ class SlotSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class AppointmentSerializer(serializers.ModelSerializer):
+    doctor = DoctorSerializer(read_only=True)  
+    slot = SlotSerializer(read_only=True)
     class Meta:
         model = Appointment
-        fields = '__all__'
+        fields = ['id', 'patient_name', 'age', 'appointment_date', 'doctor', 'slot']
 
     def validate(self, data):
         from datetime import date, timedelta
         
-        # Validation for appointment date range
+        # Validation for appointment interms of date
         if data['appointment_date'] <= date.today():
             raise serializers.ValidationError("Appointment must be from tomorrow onward.")
         if data['appointment_date'] > date.today() + timedelta(days=30):
             raise serializers.ValidationError("Appointment cannot be more than 30 days in advance.")
 
-        # Check if the doctor is on leave on the specified date and slot
+        # Checking if the doctor is on leave on the specified date and slot
         if Leave.objects.filter(
             doctor=data['doctor'],
             date=data['appointment_date'],
@@ -112,3 +73,13 @@ class AppointmentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("The selected doctor is on leave on this date and time.")
 
         return data
+    
+    
+from .models import Leave
+
+class LeaveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Leave
+        fields = ['id', 'doctor', 'date', 'slot']
+
+
